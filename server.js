@@ -1,6 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const { Pool } = require('pg');
+const cors = require('cors');
+app.use(cors());
 
 // Configuración de la base de datos PostgreSQL
 const pool = new Pool({
@@ -10,6 +12,16 @@ const pool = new Pool({
     password: 'f3b4g85', // Reemplaza con tu contraseña de PostgreSQL
     port: 5432,
 });
+
+// Verificar la conexión a la base de datos
+(async () => {
+    try {
+        await pool.connect();
+        console.log('Conectado a la base de datos PostgreSQL');
+    } catch (err) {
+        console.error('Error al conectar a la base de datos', err);
+    }
+})();
 
 // Crear el servidor Express
 const app = express();
@@ -30,10 +42,14 @@ app.post('/submit-form', async (req, res) => {
             [name, L_name, email, message]
         );
 
-        res.send('Mensaje enviado correctamente.');
+        res.json({ message: 'Mensaje enviado correctamente.' });
     } catch (err) {
         console.error('Error al enviar el mensaje', err);
-        res.status(500).send('Error al enviar el mensaje.');
+        if (err.code === '23505') {
+            res.status(400).json({ error: 'El correo ya está en uso.' });
+        } else {
+            res.status(500).json({ error: 'Error al enviar el mensaje.' });
+        }
     }
 });
 
@@ -45,4 +61,9 @@ app.get('/', (req, res) => {
 // Iniciar el servidor
 app.listen(port, () => {
     console.log(`Servidor escuchando en http://localhost:${port}`);
+});
+
+// Cerrar la conexión de la base de datos al finalizar
+process.on('exit', () => {
+    pool.end();
 });
